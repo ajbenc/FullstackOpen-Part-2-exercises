@@ -1,0 +1,29 @@
+.weather-info {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.weather-details {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.temperature {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.temperature span {
+  font-size: 2.5rem;
+  font-weight: bold;
+}
+
+.weather-meta p {
+  margin: 0.5rem 0;
+  font-size: 1.1rem;
+}
