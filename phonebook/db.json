@@ -1,0 +1,24 @@
+{
+  "personsData": [
+    {
+      "name": "Arto Hellas",
+      "number": "040-1234578",
+      "id": "1"
+    },
+    {
+      "name": "Dan Abramov",
+      "number": "12-43-234345",
+      "id": "3"
+    },
+    {
+      "id": "5cd5",
+      "name": "Corvo Attano",
+      "number": "503-5234869"
+    },
+    {
+      "id": "ec49",
+      "name": "Chris Brown",
+      "number": "555-58965847"
+    }
+  ]
+}
