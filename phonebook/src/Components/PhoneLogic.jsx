@@ -26,7 +26,10 @@ const usePhoneLogic = () => {
 
     //checking if a person already exist and prevent it
     const existingPerson = persons.find(
-      (person) => person.name === newName && person.number === newNumber
+      (person) => 
+        person.name === newName && 
+        person.phoneNumbers &&
+        person.phoneNumbers[0] === newNumber
     );
     if (existingPerson) {
       alert(
@@ -36,7 +39,10 @@ const usePhoneLogic = () => {
     }
     //checking if a number already exist and prevent it
     const numberAlreadyAdded = persons.find(
-      (person) => person.number === newNumber && person.name !== newName
+      (person) => 
+        person.phoneNumbers && 
+        person.phoneNumbers[0] === newNumber &&
+        person.name !== newName
     );
     if (numberAlreadyAdded) {
       alert(`The number ${newNumber} is already added to the name ${newName}`);
@@ -44,7 +50,7 @@ const usePhoneLogic = () => {
 
     const newPerson = {
       name: newName,
-      number: newNumber,
+      phoneNumbers: [newNumber],
     };
 
     try {
@@ -79,12 +85,12 @@ const usePhoneLogic = () => {
   const updatePerson = async (person) => {
     const newNumberInput = window.prompt(
       `Enter a new number for ${person.name}:`,
-      person.number
+      person.phoneNumbers ? person.phoneNumbers[0] :""
     );
     if (newNumberInput === null || newNumberInput.trim() === "") {
       return;
     }
-    const updatedPerson = { ...person, number: newNumberInput };
+    const updatedPerson = { ...person, phoneNumbers: [newNumberInput] };
 
     console.log("Attempting to update person:", updatedPerson);
 
