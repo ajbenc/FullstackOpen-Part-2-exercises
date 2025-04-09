@@ -1,4 +1,3 @@
-
 import express from "express";
 import fs from "fs";
 import path from "path";
@@ -9,7 +8,6 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Add a route for the root endpoint to respond with a welcome message
 app.get("/", (req, res) => {
   res.send("Welcome to the Phonebook API!");
 });
