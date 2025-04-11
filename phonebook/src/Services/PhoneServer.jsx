@@ -1,59 +1,78 @@
 
+// PhoneServer.jsx - Service module for API calls using fetch
+// Constructs the API base URL dynamically based on the environment variable
+// eslint-disable-next-line no-undef
+const apiUrl = process.env.REACT_APP_API_URL 
+  // eslint-disable-next-line no-undef
+  ? `${process.env.REACT_APP_API_URL}/api/persons`
+  : "http://localhost:3001/api/persons";
 
-const baseUrl = "http://localhost:3001/api/persons";
-
-//Obtain all persons data from the server
-
-const getAll = async () => {
-   const response = await fetch(baseUrl);
-   if (!response.ok){
-       throw new Error('Failed to fetch persons data');
+// GET all persons
+export const getAllPersons = async () => {
+  try {
+    const response = await fetch(apiUrl);
+    if (!response.ok) {
+      throw new Error(`Error fetching persons: ${response.statusText}`);
     }
     return await response.json();
+  } catch (error) {
+    console.error("Failed to fetch persons:", error);
+    throw error;
+  }
 };
 
-//Create new persons for the directory
-const create = async (newPerson) => {
-    const response = await fetch(baseUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(newPerson)
+// POST a new person
+export const createPerson = async (newPerson) => {
+  try {
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(newPerson)
     });
-    if (!response.ok){
-        throw new Error('Failed to create new person');
+    if (!response.ok) {
+      throw new Error(`Error creating person: ${response.statusText}`);
     }
-
     return await response.json();
-}
+  } catch (error) {
+    console.error("Failed to create person:", error);
+    throw error;
+  }
+};
 
-//Update the phonedirectory numbers and names this details inside the server
-const update = async (id, updatedPerson) => {
-     const response = await fetch(`${baseUrl}/${id}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updatedPerson)
-     });
-     if (!response.ok){
-        throw new Error('Failed to update person');
-     }
-     return await response.json();
-}
+// PUT (update) an existing person
+export const updatePerson = async (id, updatedPerson) => {
+  try {
+    const response = await fetch(`${apiUrl}/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(updatedPerson)
+    });
+    if (!response.ok) {
+      throw new Error(`Error updating person: ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to update person:", error);
+    throw error;
+  }
+};
 
-//Delete the existing person entry from server
-const remove = async (id) => {
-    const response = await fetch(`${baseUrl}/${id}`, {
+// DELETE a person
+export const deletePerson = async (id) => {
+  try {
+    const response = await fetch(`${apiUrl}/${id}`, {
       method: "DELETE"
     });
     if (!response.ok) {
-      throw new Error("Failed to delete person");
-    }
-    if (response.status === 204) {
-      return {};
+      throw new Error(`Error deleting person: ${response.statusText}`);
     }
     return await response.json();
-  };
-export default { getAll, create, update, remove };
+  } catch (error) {
+    console.error("Failed to delete person:", error);
+    throw error;
+  }
+};
