@@ -1,11 +1,19 @@
 
-// PhoneServer.jsx - Service module for API calls using fetch
-// Constructs the API base URL dynamically based on the environment variable
+/*
+  PhoneServer.jsx - Service module using fetch for Express API calls
+
+  This module dynamically constructs the API URL using the REACT_APP_API_URL environment variable. 
+  If REACT_APP_API_URL is not defined, it logs an error and falls back to 'http://localhost:3001'.
+*/
 // eslint-disable-next-line no-undef
-const apiUrl = process.env.REACT_APP_API_URL 
-  // eslint-disable-next-line no-undef
-  ? `${process.env.REACT_APP_API_URL}/api/persons`
-  : "http://localhost:3001/api/persons";
+const baseUrl = process.env.REACT_APP_API_URL;
+if (!baseUrl) {
+  console.error("REACT_APP_API_URL is not defined! Falling back to http://localhost:3001");
+}
+const apiUrl = `${baseUrl || "http://localhost:3001"}/api/persons`;
+
+// Debug: Log the API URL in use
+console.log("Using API URL:", apiUrl);
 
 // GET all persons
 export const getAllPersons = async () => {
