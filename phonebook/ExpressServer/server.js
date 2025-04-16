@@ -1,6 +1,8 @@
+
+import 'dotenv/config';
+import process from "process";
 import express from "express";
-import fs from "fs";
-import path from "path";
+import mongoose from "mongoose";
 import crypto from "crypto";
 import cors from "cors";
 
@@ -8,35 +10,33 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-app.get("/", (req, res) => {
-  res.send("Welcome to the Phonebook API!");
+// Load environment variables from .env file
+const mongoUri = process.env.MONGO_URI;
+const PORT = process.env.PORT || 3001;
+
+if (!mongoUri) {
+  console.error("Missing MongoDB connection string in .env (MONGO_URI)");
+  process.exit(1);
+}
+
+// Connect to MongoDB
+mongoose.connect(mongoUri)
+  .then(() => {
+    console.log("Connected to MongoDB");
+  })
+  .catch((error) => {
+    console.error("Error connecting to MongoDB:", error);
+    process.exit(1);
+  });
+
+// Define the Mongoose schema and model for a Person
+const personSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  phoneNumbers: { type: [String], required: true },
+  token: { type: String, default: "" }
 });
 
-// Path to the db.json file that stores phonebook data
-// eslint-disable-next-line no-undef
-const DB_PATH = path.join(process.cwd(), "db.json");
-
-/**
- * Reads the JSON database.
- * Returns an object which should contain a 'personsData' array.
- */
-function readDB() {
-  try {
-    const data = fs.readFileSync(DB_PATH, "utf8");
-    return JSON.parse(data);
-  } catch (error) {
-    console.log("Couldn't read data", error);
-    // If the file doesn't exist or is corrupt, initialize with an empty personsData array.
-    return { personsData: [] };
-  }
-}
-
-/**
- * Writes the updated data into the database file.
- */
-function writeDB(data) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
-}
+const Person = mongoose.model("Person", personSchema);
 
 /**
  * Generates a new token.
@@ -46,139 +46,123 @@ function generateToken() {
 }
 
 /**
- * Generates a new unique id for a contact.
- * Uses crypto to generate a random hexadecimal string.
+ * GET /
+ * Welcome route.
  */
-function generateId() {
-  return crypto.randomBytes(4).toString("hex");
-}
+app.get("/", (req, res) => {
+  res.send("Welcome to the Phonebook API!");
+});
 
 /**
  * GET /api/persons
- * Returns all contacts.
+ * Retrieves all contacts from MongoDB.
  */
-app.get("/api/persons", (req, res) => {
-  const db = readDB();
-  const persons = db.personsData || [];
-  res.json(persons);
+app.get("/api/persons", async (req, res) => {
+  try {
+    const persons = await Person.find({});
+    res.json(persons);
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+    console.log(error);
+    
+  }
 });
 
 /**
  * GET /api/persons/:id
- * Returns a single contact for the specified id.
+ * Retrieves a single contact by its MongoDB _id.
  */
-app.get("/api/persons/:id", (req, res) => {
-  const id = req.params.id;
-  const db = readDB();
-  const person = (db.personsData || []).find((p) => p.id === id);
-
-  if (!person) {
-    return res.status(404).json({ error: "User not found" });
+app.get("/api/persons/:id", async (req, res) => {
+  try {
+    const person = await Person.findById(req.params.id);
+    if (!person) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json(person);
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+    console.log(error);
   }
-  res.json(person);
 });
 
 /**
  * POST /api/persons
- * Expects a request body with { name: string, phoneNumbers: Array }.
- * Generates a new token and id, appends the new contact into the personsData array in db.json,
- * and returns the created contact.
+ * Creates a new contact with the provided name and phoneNumbers.
  */
-app.post("/api/persons", (req, res) => {
+app.post("/api/persons", async (req, res) => {
   const { name, phoneNumbers } = req.body;
-
-  // Validate input
   if (!name || !phoneNumbers || !Array.isArray(phoneNumbers)) {
     return res.status(400).json({
-      error:
-        "Missing or invalid name and/or phoneNumbers. Ensure phoneNumbers is an array.",
+      error: "Missing or invalid name and/or phoneNumbers. Ensure phoneNumbers is an array."
     });
   }
 
-  const db = readDB();
-  const persons = db.personsData || [];
-
-  // Generate a unique id and token for the new contact
-  const newId = generateId();
   const token = generateToken();
 
-  const newContact = {
-    id: newId,
+  const newPerson = new Person({
     name,
     phoneNumbers,
-    token,
-  };
+    token
+  });
 
-  persons.push(newContact);
-  db.personsData = persons;
-  writeDB(db);
-
-  console.log("New contact added:", newContact);
-  res.status(201).json(newContact);
+  try {
+    const savedPerson = await newPerson.save();
+    console.log("New contact added:", savedPerson);
+    res.status(201).json(savedPerson);
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+    console.log(error);
+  }
 });
 
 /**
  * PUT /api/persons/:id
- * Expects a request body with { name: string, phoneNumbers: Array }.
- * Finds the person with the specified id, updates their details,
- * writes back the updated data to db.json, and returns the updated contact.
+ * Updates the contact with the specified id.
  */
-app.put("/api/persons/:id", (req, res) => {
-  const id = req.params.id;
+app.put("/api/persons/:id", async (req, res) => {
   const { name, phoneNumbers } = req.body;
-
-  // Validate new data
   if (!name || !phoneNumbers || !Array.isArray(phoneNumbers)) {
     return res.status(400).json({
-      error:
-        "Missing or invalid name and/or phoneNumbers. Ensure phoneNumbers is an array.",
+      error: "Missing or invalid name and/or phoneNumbers. Ensure phoneNumbers is an array."
     });
   }
 
-  const db = readDB();
-  const persons = db.personsData || [];
-  const personIndex = persons.findIndex((p) => p.id === id);
-
-  if (personIndex === -1) {
-    return res.status(404).json({ error: "User not found" });
+  try {
+    const updatedPerson = await Person.findByIdAndUpdate(
+      req.params.id,
+      { name, phoneNumbers },
+      { new: true, runValidators: true }
+    );
+    if (!updatedPerson) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    console.log("Updated person:", updatedPerson);
+    res.json(updatedPerson);
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+    console.log(error);
   }
-
-  // Update the person's data while preserving any existing token or additional fields
-  const updatedPerson = { ...persons[personIndex], name, phoneNumbers };
-  persons[personIndex] = updatedPerson;
-  db.personsData = persons;
-  writeDB(db);
-
-  console.log("Updated person:", updatedPerson);
-  res.json(updatedPerson);
 });
 
 /**
  * DELETE /api/persons/:id
- * Removes the contact with the specified id from the database.
+ * Deletes the contact with the specified id.
  */
-app.delete("/api/persons/:id", (req, res) => {
-  const id = req.params.id;
-  console.log("Received DELETE request for id:", id);
-  const db = readDB();
-  const persons = db.personsData || [];
-  console.log("Current persons in DB:", persons);
-  const initialLength = persons.length;
-  const updatedPersons = persons.filter((person) => person.id !== id);
-
-  if (updatedPersons.length === initialLength) {
-    console.log("No matching person found for id:", id);
-    return res.status(404).json({ error: "User not found" });
+app.delete("/api/persons/:id", async (req, res) => {
+  try {
+    const deletedPerson = await Person.findByIdAndRemove(req.params.id);
+    if (!deletedPerson) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    console.log("Deleted person with id:", req.params.id);
+    res.status(204).end();
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+    console.log(error);
   }
-
-  db.personsData = updatedPersons;
-  writeDB(db);
-  console.log("Deleted person with id:", id);
-  res.status(204).end();
 });
 
-// Start the server on port 3001
-const PORT = 3001;
+// Start the server on the specified PORT
 app.listen(PORT, () => {
   console.log(`Express server running on port ${PORT}`);
 });
