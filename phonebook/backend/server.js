@@ -2,22 +2,37 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
 import personRoutes from './routes/persons.js';
 
 dotenv.config();
 
 const app = express();
-const corsOptions = {
-  origin: [
-    'http://localhost:5173',
-    'https://fullstackopen-part-2-exercises.pages.dev/'
-  ],
-  optionsSuccessStatus: 200
-};
+const allowedOrigins = [
+  'https://e47580b6.fullstackopen-part-2-exercises.pages.dev', // Cloudflare
+  'http://localhost:5173' // Local dev
+];
 
 // Middleware
-app.use(cors(corsOptions));
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = `CORS policy ${origin} not allowed`;
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE']
+}));
 app.use(express.json());
+
+//Add helmet security
+
+app.use(helmet());
+app.use(helmet.crossOriginEmbedderPolicy({ policy: "cross-origin"}));
 
 // Routes
 app.use('/api/persons', personRoutes);
