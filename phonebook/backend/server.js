@@ -12,6 +12,7 @@ const corsOptions = {
     'http://localhost:5173',
     'https://fullstackopen-part-2-exercises.pages.dev/'
   ],
+  optionsSuccessStatus: 200
 };
 
 // Middleware
