@@ -15,24 +15,18 @@ const allowedOrigins = [
 
 // Middleware
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = `CORS policy ${origin} not allowed`;
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE']
+  origin: [
+    'https://e47580b6.fullstackopen-part-2-exercises.pages.dev',
+    'http://localhost:5173'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 
 //Add helmet security
 
 app.use(helmet());
-app.use(helmet.crossOriginEmbedderPolicy({ policy: "cross-origin"}));
 
 // Routes
 app.use('/api/persons', personRoutes);
