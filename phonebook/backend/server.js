@@ -9,14 +9,14 @@ dotenv.config();
 
 const app = express();
 const allowedOrigins = [
-  'https://e47580b6.fullstackopen-part-2-exercises.pages.dev', // Cloudflare
+  'https://fullstackopen-part-2-exercises.pages.dev/', // Cloudflare
   'http://localhost:5173' // Local dev
 ];
 
 // Middleware
 app.use(cors({
   origin: [
-    'https://e47580b6.fullstackopen-part-2-exercises.pages.dev',
+    'https://fullstackopen-part-2-exercises.pages.dev/',
     'http://localhost:5173'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
