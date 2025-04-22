@@ -47,7 +47,12 @@ export const getAllPersons = async () => {
     
     const response = await fetch(personsUrl, { 
       signal: controller.signal,
-      headers: { 'Accept': 'application/json' }
+      mode: 'cors',
+      credentials: 'same-origin', // or 'include' if using cookies
+      headers: { 
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
     });
     
     clearTimeout(timeoutId);
