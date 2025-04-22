@@ -7,9 +7,15 @@ import personRoutes from './routes/persons.js';
 dotenv.config();
 
 const app = express();
+const corsOptions = {
+  origin: [
+    'http://localhost:5173',
+    'https://fullstackopen-part-2-exercises.pages.dev/'
+  ],
+};
 
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Routes

@@ -7,7 +7,7 @@
 */
 
 // Get API base URL from environment variable or use default
-const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://fullstackopen-part-2-exercises.onrender.com';
 const personsUrl = `${apiBaseUrl}/api/persons`;
 
 console.log('PhoneServer: Using API URL:', personsUrl);
