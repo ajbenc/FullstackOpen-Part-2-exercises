@@ -8,24 +8,46 @@ import personRoutes from './routes/persons.js';
 dotenv.config();
 
 const app = express();
-const allowedOrigins = [
-  'https://fullstackopen-part-2-exercises.pages.dev/', // Cloudflare
-  /https:\/\/.*--fullstackopen-part-2-exercises\.pages\.dev/,
-  'http://localhost:5173' // Local dev
-];
 
-// Middleware
-app.use(cors({
-  origin: allowedOrigins,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type'],
-  credentials: true
-}));
+// server.js - Full CORS setup
+
+const corsOptions = {
+  origin: [
+    'https://fullstackopen-part-2-exercises.pages.dev',
+    /https:\/\/.*--fullstackopen-part-2-exercises\.pages\.dev/,
+    'http://localhost:5173'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+// Enable preflight for all routes
+app.options('*', cors(corsOptions)); 
+app.use(cors(corsOptions));
+
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    res.header('Access-Control-Max-Age', '86400');
+  }
+  next();
+});
+
 app.use(express.json());
 
 //Add helmet security
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", "https://fullstackopen-part-2-exercises.onrender.com"]
+    }
+  }
+}));
 
 // Routes
 app.use('/api/persons', personRoutes);
