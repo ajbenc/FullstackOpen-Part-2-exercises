@@ -9,7 +9,7 @@ dotenv.config();
 
 const app = express();
 const allowedOrigins = [
-  'https://e47580b6.fullstackopen-part-2-exercises.pages.dev', // Cloudflare
+  'https://c905dc8a.fullstackopen-part-2-exercises.pages.dev', // Cloudflare
   'http://localhost:5173' // Local dev
 ];
 
