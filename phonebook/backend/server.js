@@ -9,44 +9,49 @@ dotenv.config();
 
 const app = express();
 
-// server.js - Full CORS setup
+// Middleware Order Matters!
+// 1. CORS first
+// 2. Body parser
+// 3. Security headers
 
+// CORS Configuration
 const corsOptions = {
-  origin: [
-    'https://fullstackopen-part-2-exercises.pages.dev',
-    /https:\/\/.*--fullstackopen-part-2-exercises\.pages\.dev/,
-    'http://localhost:5173'
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      'https://fullstackopen-part-2-exercises.pages.dev',
+      /https:\/\/.*--fullstackopen-part-2-exercises\.pages\.dev/,
+      'http://localhost:5173'
+    ];
+    
+    if (!origin || allowedOrigins.some(pattern => 
+      typeof pattern === 'string' ? origin === pattern : pattern.test(origin)
+    )) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
-  preflightContinue: false,
   optionsSuccessStatus: 204
 };
 
-// Enable preflight for all routes
-app.options('*', cors(corsOptions)); 
+app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
 
-app.use((req, res, next) => {
-  if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Max-Age', '86400');
-  }
-  next();
-});
-
+// Body Parser
 app.use(express.json());
 
-//Add helmet security
-
+// Security Headers
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       connectSrc: ["'self'", "https://fullstackopen-part-2-exercises.onrender.com"]
     }
-  }
+  },
+  crossOriginEmbedderPolicy: false
 }));
 
 // Routes
@@ -55,7 +60,12 @@ app.use('/api/persons', personRoutes);
 // MongoDB Connection
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 30000
+    });
     console.log('MongoDB connected successfully');
   } catch (err) {
     console.error('MongoDB connection error:', err);
@@ -63,9 +73,13 @@ const connectDB = async () => {
   }
 };
 
-// Start Server
+// Server Startup
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  connectDB();
-  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-});
+const startServer = async () => {
+  await connectDB();
+  app.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  });
+};
+
+startServer();
