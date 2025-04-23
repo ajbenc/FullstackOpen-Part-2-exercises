@@ -8,41 +8,48 @@ import personRoutes from './routes/persons.js';
 dotenv.config();
 
 const app = express();
+const allowedOrigins = [
+  'https://e47580b6.fullstackopen-part-2-exercises.pages.dev', // Cloudflare
+  'http://localhost:5173' // Local dev
+];
 
-// 1. CORS Configuration
-const corsOptions = {
-  origin: [
-    'https://fullstackopen-part-2-exercises.pages.dev',
-    'http://localhost:5173'
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type']
-};
+// Middleware
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
 
-app.use(cors(corsOptions));
-app.options('*', cors());
-
-// 2. Body Parser
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = `CORS policy ${origin} not allowed`;
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE']
+}));
 app.use(express.json());
 
-// 3. Security Headers
+//Add helmet security
+
 app.use(helmet());
 
-// 4. Routes (VERIFY PATH)
+// Routes
 app.use('/api/persons', personRoutes);
 
-// 5. DB Connection
+// MongoDB Connection
 const connectDB = async () => {
-  await mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-  });
-  console.log('MongoDB Connected');
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log('MongoDB connected successfully');
+  } catch (err) {
+    console.error('MongoDB connection error:', err);
+    process.exit(1);
+  }
 };
 
-// 6. Server Start
+// Start Server
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   connectDB();
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });

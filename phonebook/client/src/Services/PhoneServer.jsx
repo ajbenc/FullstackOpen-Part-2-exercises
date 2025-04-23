@@ -1,147 +1,151 @@
 /*
-  PhoneServer.jsx - Production-grade service for API communication
-  Features:
-  - Automatic retry logic
-  - Enhanced error handling
-  - CORS optimization
-  - Security headers
-  - Request timeouts
+  PhoneServer.jsx - Service for connecting to MongoDB via Express
+  
+  This module handles API communication with the Express backend that 
+  connects to MongoDB. It uses a direct connection approach with clear 
+  error reporting.
 */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fullstackopen-part-2-exercises.onrender.com';
-const API_TOKEN = import.meta.env.VITE_API_TOKEN;
-const PERSONS_URL = `${API_BASE_URL}/api/persons`;
+// Get API base URL from environment variable or use default
+const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://fullstackopen-part-2-exercises.onrender.com';
+const personsUrl = `${apiBaseUrl}/api/persons`;
 
-// Configure retry parameters
-const RETRY_CONFIG = {
-  maxRetries: 3,
-  retryDelay: 2000,
-  retryStatuses: [429, 502, 503, 504],
+console.log('PhoneServer: Using API URL:', personsUrl);
+
+// Helper function to handle fetch responses
+const handleResponse = async (response) => {
+  // Log detailed response information for debugging
+  console.log(`PhoneServer: Received ${response.status} ${response.statusText} from server`);
+  
+  if (!response.ok) {
+    // Try to get detailed error message from response
+    let errorMessage;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorData.message || response.statusText;
+    } catch (e) {
+      errorMessage = response.statusText;
+      console.log(e);
+      
+    }
+    
+    throw new Error(`Server error (${response.status}): ${errorMessage}`);
+  }
+  
+  // For successful responses, parse JSON
+  return response.json();
 };
 
-// Global request timeout (10 seconds)
-const REQUEST_TIMEOUT = 10000;
-
-// Unified fetch handler with retry logic
-const fetchWithRetry = async (url, options = {}, retries = RETRY_CONFIG.maxRetries) => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-
+// GET all persons from MongoDB
+export const getAllPersons = async () => {
   try {
-    const response = await fetch(url, {
-      ...options,
+    console.log('PhoneServer: Fetching all persons from', personsUrl);
+    
+    // Make request with timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    const response = await fetch(personsUrl, { 
       signal: controller.signal,
       mode: 'cors',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
+      credentials: 'same-origin', // or 'include' if using cookies
+      headers: { 
         'Accept': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-        ...(API_TOKEN && { 'Authorization': `Bearer ${API_TOKEN}` }),
-        ...options.headers,
-      },
+        'Content-Type': 'application/json'
+      }
     });
-
+    
     clearTimeout(timeoutId);
-
-    if (RETRY_CONFIG.retryStatuses.includes(response.status) && retries > 0) {
-      await new Promise(resolve => setTimeout(resolve, RETRY_CONFIG.retryDelay));
-      return fetchWithRetry(url, options, retries - 1);
-    }
-
-    return response;
+    
+    const data = await handleResponse(response);
+    console.log(`PhoneServer: Successfully fetched ${data.length} persons`);
+    return data;
   } catch (error) {
-    clearTimeout(timeoutId);
-    if (error.name !== 'AbortError' && retries > 0) {
-      await new Promise(resolve => setTimeout(resolve, RETRY_CONFIG.retryDelay));
-      return fetchWithRetry(url, options, retries - 1);
+    // Provide more helpful error messages based on error type
+    if (error.name === 'AbortError') {
+      console.error('PhoneServer: Request timed out. The server might be down or unreachable.');
+    } else if (error.message.includes('Failed to fetch')) {
+      console.error('PhoneServer: Connection failed. Check if the Express server is running on port 3001.');
+      console.error('Try running: cd ExpressServer && node server.js');
+    } else {
+      console.error('PhoneServer: Error fetching persons:', error.message);
     }
+    
     throw error;
   }
 };
 
-// Enhanced response handler
-const handleResponse = async (response) => {
-  // Handle CORS-related errors
-  if (response.status === 403) {
-    const errorData = await response.json().catch(() => ({}));
-    if (errorData.code === 'CORS_FORBIDDEN') {
-      window.location.reload();
-      return;
-    }
-  }
-
-  // Handle empty responses
-  const contentLength = response.headers.get('Content-Length');
-  if (response.status === 204 || contentLength === '0') {
-    return null;
-  }
-
-  // Handle error responses
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({
-      message: response.statusText,
-    }));
-    
-    throw new Error(errorData.message || `HTTP Error ${response.status}`);
-  }
-
-  return response.json();
-};
-
-// API Methods
-export const getAllPersons = async () => {
-  try {
-    const response = await fetchWithRetry(PERSONS_URL);
-    return handleResponse(response);
-  } catch (error) {
-    console.error('Failed to fetch persons:', error.message);
-    throw new Error('Connection to server failed. Please try again later.');
-  }
-};
-
+// POST a new person to MongoDB
 export const createPerson = async (newPerson) => {
   try {
-    const response = await fetchWithRetry(PERSONS_URL, {
+    console.log('PhoneServer: Creating new person:', newPerson);
+    
+    const response = await fetch(personsUrl, {
       method: 'POST',
-      body: JSON.stringify(newPerson),
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(newPerson)
     });
-    return handleResponse(response);
+    
+    const data = await handleResponse(response);
+    console.log('PhoneServer: Person created successfully:', data);
+    return data;
   } catch (error) {
-    console.error('Failed to create person:', error.message);
-    throw new Error(`Failed to create entry: ${error.message}`);
+    console.error('PhoneServer: Error creating person:', error.message);
+    throw error;
   }
 };
 
+// PUT (update) a person in MongoDB
 export const updatePerson = async (id, updatedPerson) => {
   try {
-    const response = await fetchWithRetry(`${PERSONS_URL}/${id}`, {
+    console.log(`PhoneServer: Updating person with ID ${id}:`, updatedPerson);
+    
+    const response = await fetch(`${personsUrl}/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(updatedPerson),
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updatedPerson)
     });
-    return handleResponse(response);
+    
+    const data = await handleResponse(response);
+    console.log('PhoneServer: Person updated successfully:', data);
+    return data;
   } catch (error) {
-    console.error(`Failed to update person ${id}:`, error.message);
-    throw new Error(`Update failed: ${error.message}`);
+    console.error(`PhoneServer: Error updating person ${id}:`, error.message);
+    throw error;
   }
 };
 
+// DELETE a person from MongoDB
 export const deletePerson = async (id) => {
   try {
-    const response = await fetchWithRetry(`${PERSONS_URL}/${id}`, {
-      method: 'DELETE',
+    console.log(`PhoneServer: Deleting person with ID ${id}`);
+    
+    const response = await fetch(`${personsUrl}/${id}`, {
+      method: 'DELETE'
     });
-    return handleResponse(response);
+    
+    // DELETE may return 204 No Content
+    if (response.status === 204) {
+      console.log(`PhoneServer: Person ${id} deleted successfully`);
+      return true;
+    }
+    
+    const data = await handleResponse(response);
+    return data;
   } catch (error) {
-    console.error(`Failed to delete person ${id}:`, error.message);
-    throw new Error(`Deletion failed: ${error.message}`);
+    console.error(`PhoneServer: Error deleting person ${id}:`, error.message);
+    throw error;
   }
 };
 
-// Service Export
+// Export as default object with methods
 export default {
   getAll: getAllPersons,
   createPerson,
   updatePerson,
-  deletePerson,
+  deletePerson
 };
