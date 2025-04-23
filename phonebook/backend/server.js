@@ -9,24 +9,30 @@ dotenv.config();
 
 const app = express();
 const allowedOrigins = [
-  'https://c905dc8a.fullstackopen-part-2-exercises.pages.dev', // Cloudflare
-  'http://localhost:5173' // Local dev
+  // Match all Cloudflare Pages deployments for your project
+  /^https:\/\/(.*\.)?fullstackopen-part-2-exercises\.pages\.dev$/,
+  'http://localhost:5173'
 ];
 
-// Middleware
 app.use(cors({
   origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc)
     if (!origin) return callback(null, true);
+    
+    // Check against allowed origins
+    const allowed = allowedOrigins.some(pattern => {
+      if (typeof pattern === 'string') {
+        return origin === pattern;
+      }
+      return pattern.test(origin);
+    });
 
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = `CORS policy ${origin} not allowed`;
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
+    allowed ? callback(null, true) : callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE']
 }));
+
 app.use(express.json());
 
 //Add helmet security
