@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react";
 import PhoneServer from "../Services/PhoneServer";
 
+// Phone number validation and normalization utilities
+const isValidPhoneNumber = (number) => {
+  const phoneRegex = /^\d{2,3}- ?\d{6,}$/;
+  const digits = number.replace(/[-\s]/g, '');
+  return phoneRegex.test(number) && digits.length >= 8;
+};
+
+const normalizePhoneNumber = (num) => num.replace(/[-\s]/g, '');
+
 const usePhoneLogic = () => {
   const [persons, setPersons] = useState([]);
   const [newName, setNewName] = useState("");
@@ -15,23 +24,20 @@ const usePhoneLogic = () => {
     const fetchPersons = async () => {
       setLoading(true);
       try {
-        console.log("Attempting to fetch data from server...");
         const data = await PhoneServer.getAll();
-        console.log("Data successfully fetched:", data);
         setPersons(data);
         setError(null);
       } catch (error) {
         console.error("Error fetching data:", error);
-        setError("Failed to connect to the server. Please ensure your backend is running.");
+        setError("Server connection failed. Please try again later.");
         setNotification({ 
-          message: "Connection error: Please check if the server is running", 
+          message: "Connection error: Please check server status", 
           type: "error" 
         });
       } finally {
         setLoading(false);
       }
     };
-    
     fetchPersons();
   }, []);
 
@@ -39,119 +45,148 @@ const usePhoneLogic = () => {
   const addPerson = async (event) => {
     event.preventDefault();
 
-    // Checking if a person already exists
-    const existingPerson = persons.find(
-      (person) => 
-        person.name === newName && 
-        person.phoneNumbers &&
-        person.phoneNumbers.includes(newNumber)
-    );
-    
-    if (existingPerson) {
-      alert(`${newName} with number ${newNumber} is already added to the directory`);
+    // Input validation
+    if (!newName.trim()) {
+      setNotification({
+        message: 'Name cannot be empty',
+        type: 'error'
+      });
+      setTimeout(() => setNotification(null), 5000);
       return;
     }
-    
-    // Checking if a number already exists
-    const numberAlreadyAdded = persons.find(
-      (person) => 
-        person.phoneNumbers && 
-        person.phoneNumbers.includes(newNumber) &&
-        person.name !== newName
+
+    const sanitizedNumber = newNumber.replace(/\s+/g, '');
+    if (!isValidPhoneNumber(sanitizedNumber)) {
+      setNotification({
+        message: 'Invalid format! Use: 09-12345678 or 040-1234567',
+        type: 'error'
+      });
+      setTimeout(() => setNotification(null), 5000);
+      return;
+    }
+
+    // Normalized duplicate checks
+    const normalizedNewNumber = normalizePhoneNumber(sanitizedNumber);
+    const existingPerson = persons.find(person => 
+      person.name.toLowerCase() === newName.toLowerCase().trim() && 
+      person.phoneNumbers?.some(num => 
+        normalizePhoneNumber(num) === normalizedNewNumber
+      )
     );
-    
-    if (numberAlreadyAdded) {
-      alert(`The number ${newNumber} is already added to the name ${numberAlreadyAdded.name}`);
+
+    if (existingPerson) {
+      setNotification({
+        message: `${newName} with this number already exists`,
+        type: 'warning'
+      });
+      setTimeout(() => setNotification(null), 5000);
+      return;
+    }
+
+    const numberConflict = persons.find(person =>
+      person.phoneNumbers?.some(num => 
+        normalizePhoneNumber(num) === normalizedNewNumber
+      ) && person.name.toLowerCase() !== newName.toLowerCase().trim()
+    );
+
+    if (numberConflict) {
+      setNotification({
+        message: `Number already registered to ${numberConflict.name}`,
+        type: 'warning'
+      });
+      setTimeout(() => setNotification(null), 5000);
       return;
     }
 
     const newPerson = {
-      name: newName,
-      phoneNumbers: [newNumber]
+      name: newName.trim(),
+      phoneNumbers: [sanitizedNumber]
     };
 
     try {
-      // Use the correct method name from PhoneServer
       const createdPerson = await PhoneServer.createPerson(newPerson);
-      console.log("Created person:", createdPerson);
       setPersons(persons.concat(createdPerson));
       setNewName("");
       setNewNumber("");
-      setNotification({ message: `Added ${newName}`, type: "success" });
-      setTimeout(() => setNotification(null), 5000);
-    } catch (error) {
-      console.error("Error saving new person:", error);
-      setNotification({ message: `Error adding ${newName}`, type: "error" });
-      setTimeout(() => setNotification(null), 5000);
-    }
-  };
-
-  const deletePerson = async (id) => {
-    console.log("Attempting to delete person with id:", id);
-    
-    // Confirm deletion
-    if (!window.confirm("Are you sure you want to delete this contact?")) {
-      return;
-    }
-    
-    try {
-      // Use the correct method name from PhoneServer
-      await PhoneServer.deletePerson(id);
-      setPersons(persons.filter((person) => person._id !== id));
-      setNotification({ message: "Deleted successfully", type: "success" });
-      setTimeout(() => setNotification(null), 5000);
-      console.log("Successfully deleted person with id:", id);
-    } catch (error) {
-      console.error("Error deleting person:", error);
-      setNotification({ message: "Error deleting person", type: "error" });
-      setTimeout(() => setNotification(null), 5000);
-    }
-  };
-
-  const updatePerson = async (person) => {
-    const currentNumber = person.phoneNumbers && person.phoneNumbers.length > 0 
-      ? person.phoneNumbers[0] 
-      : "";
-    
-    const newNumberInput = window.prompt(
-      `Enter a new number for ${person.name}:`,
-      currentNumber
-    );
-    
-    if (newNumberInput === null || newNumberInput.trim() === "") {
-      return;
-    }
-    
-    // Create an updated person object
-    const updatedPerson = { 
-      ...person, 
-      phoneNumbers: [newNumberInput] 
-    };
-
-    console.log("Attempting to update person:", updatedPerson);
-
-    try {
-      // Use the correct method name from PhoneServer
-      const returnedPerson = await PhoneServer.updatePerson(person._id, updatedPerson);
-      // Update the local state - note we're using _id not id for MongoDB
-      setPersons(persons.map((p) => (p._id === person._id ? returnedPerson : p)));
       setNotification({ 
-        message: `Updated ${person.name}'s number successfully`, 
+        message: `Added ${newPerson.name}`, 
         type: "success" 
       });
       setTimeout(() => setNotification(null), 5000);
     } catch (error) {
-      console.error("Error updating person:", error);
+      console.error("Error saving contact:", error);
       setNotification({ 
-        message: `Error: Information of ${person.name} couldn't be updated`, 
+        message: `Failed to add ${newPerson.name}`, 
         type: "error" 
       });
       setTimeout(() => setNotification(null), 5000);
     }
   };
 
-  const filterNames = persons.filter((person) =>
-    person.name.toLowerCase().includes(filterName.toLowerCase())
+  const deletePerson = async (id) => {
+    if (!window.confirm("Confirm permanent deletion of this contact?")) return;
+
+    try {
+      await PhoneServer.deletePerson(id);
+      setPersons(persons.filter(person => person._id !== id));
+      setNotification({ 
+        message: "Contact deleted successfully", 
+        type: "success" 
+      });
+      setTimeout(() => setNotification(null), 5000);
+    } catch (error) {
+      console.error("Deletion error:", error);
+      setNotification({ 
+        message: "Failed to delete contact", 
+        type: "error" 
+      });
+      setTimeout(() => setNotification(null), 5000);
+    }
+  };
+
+  const updatePerson = async (person) => {
+    const currentNumber = person.phoneNumbers?.[0] || "";
+    const newNumberInput = window.prompt(
+      `Update number for ${person.name}:`,
+      currentNumber
+    );
+
+    if (!newNumberInput?.trim()) return;
+
+    const sanitizedNumber = newNumberInput.trim().replace(/\s+/g, '');
+    if (!isValidPhoneNumber(sanitizedNumber)) {
+      setNotification({
+        message: 'Invalid format! Use: 09-12345678 or 040-1234567',
+        type: 'error'
+      });
+      setTimeout(() => setNotification(null), 5000);
+      return;
+    }
+
+    try {
+      const updatedPerson = { 
+        ...person, 
+        phoneNumbers: [sanitizedNumber] 
+      };
+      const returnedPerson = await PhoneServer.updatePerson(person._id, updatedPerson);
+      setPersons(persons.map(p => p._id === person._id ? returnedPerson : p));
+      setNotification({ 
+        message: `Updated ${person.name}'s number`, 
+        type: "success" 
+      });
+      setTimeout(() => setNotification(null), 5000);
+    } catch (error) {
+      console.error("Update error:", error);
+      setNotification({ 
+        message: `Failed to update ${person.name}`, 
+        type: "error" 
+      });
+      setTimeout(() => setNotification(null), 5000);
+    }
+  };
+
+  const filterNames = persons.filter(person =>
+    person.name.toLowerCase().includes(filterName.toLowerCase().trim())
   );
 
   return {
